@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>마케팅비용 프로젝트</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         * {
             margin: 0;
@@ -2816,16 +2817,14 @@
                 
                 <div class="video-container">
                     <div class="youtube-embed">
-                        <iframe 
+                        <video 
+                            id="custom-video-player"
                             width="100%" 
                             height="600" 
-                            src="https://customer-kfuxyn0gvkqyy0az.cloudflarestream.com/5d25b47d7c608890fbeda52a41793ba1/watch?autoplay=0&controls=1&muted=0&preload=metadata&defaultQuality=1080p&quality=1080p" 
-                            title="개발 화면 설명자료" 
-                            frameborder="0" 
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                            allowfullscreen
+                            controls
                             style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                        </iframe>
+                            <p>브라우저가 비디오를 지원하지 않습니다.</p>
+                        </video>
                     </div>
                     <p class="video-caption">개발 화면 설명자료 (동영상)</p>
                 </div>
@@ -2983,6 +2982,73 @@
             // 선택된 탭 패널에 active 클래스 추가
             document.getElementById(tabName).classList.add('active');
         }
+
+        // HLS.js를 사용한 커스텀 비디오 플레이어 초기화 (1080p 강제 설정)
+        document.addEventListener('DOMContentLoaded', function() {
+            const video = document.getElementById('custom-video-player');
+            
+            if (Hls.isSupported()) {
+                const hls = new Hls({
+                    // 1080p 품질을 우선적으로 선택하도록 설정
+                    startLevel: -1, // 자동 선택
+                    abrEwmaDefaultEstimate: 5000000, // 높은 대역폭 추정
+                    abrBandWidthFactor: 0.95, // 대역폭 활용도 높임
+                    abrBandWidthUpFactor: 0.7, // 업그레이드 임계값 낮춤
+                    abrMaxWithRealBitrate: true
+                });
+                
+                // Cloudflare Stream HLS URL (기존 비디오 ID 사용)
+                const videoId = '5d25b47d7c608890fbeda52a41793ba1';
+                const hlsUrl = `https://videodelivery.net/${videoId}/manifest/video.m3u8`;
+                
+                hls.loadSource(hlsUrl);
+                hls.attachMedia(video);
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    console.log('HLS 매니페스트 파싱 완료');
+                    
+                    // 사용 가능한 품질 레벨 확인
+                    console.log('사용 가능한 품질 레벨:', hls.levels);
+                    
+                    // 가장 높은 품질(1080p)을 강제로 선택
+                    if (hls.levels.length > 0) {
+                        // 1080p 또는 가장 높은 품질 찾기
+                        let targetLevel = hls.levels.length - 1; // 기본적으로 가장 높은 품질
+                        
+                        // 1080p 품질이 있는지 확인
+                        for (let i = hls.levels.length - 1; i >= 0; i--) {
+                            if (hls.levels[i].height >= 1080) {
+                                targetLevel = i;
+                                break;
+                            }
+                        }
+                        
+                        console.log(`선택된 품질 레벨: ${targetLevel} (${hls.levels[targetLevel].height}p)`);
+                        hls.currentLevel = targetLevel;
+                        
+                        // 품질 변경을 방지하기 위해 자동 품질 조정 비활성화
+                        hls.autoLevelEnabled = false;
+                    }
+                });
+                
+                hls.on(Hls.Events.LEVEL_SWITCHED, function(event, data) {
+                    console.log(`품질 레벨 변경: ${hls.levels[data.level].height}p`);
+                });
+                
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    console.error('HLS 에러:', data);
+                });
+                
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Safari의 네이티브 HLS 지원
+                const videoId = '5d25b47d7c608890fbeda52a41793ba1';
+                const hlsUrl = `https://videodelivery.net/${videoId}/manifest/video.m3u8`;
+                video.src = hlsUrl;
+                console.log('Safari 네이티브 HLS 사용');
+            } else {
+                console.error('HLS가 지원되지 않는 브라우저입니다.');
+            }
+        });
     </script>
 </body>
 </html>
